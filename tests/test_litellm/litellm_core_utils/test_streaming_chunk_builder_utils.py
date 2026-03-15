@@ -399,6 +399,54 @@ def test_stream_chunk_builder_litellm_usage_chunks():
     assert usage.total_tokens == 77
 
 
+def test_calculate_usage_backfills_reasoning_tokens_when_usage_chunk_reports_zero():
+    """
+    Regression test for Anthropic streaming:
+
+    intermediate usage chunks can report reasoning_tokens=0 even when the final
+    aggregated response contains reasoning content. The stream chunk builder
+    should backfill the final reasoning/text token split from the aggregated
+    reasoning content.
+    """
+    chunk = ModelResponseStream(
+        id="chatcmpl-anthropic-reasoning",
+        created=1745513206,
+        model="claude-sonnet-4-6",
+        object="chat.completion.chunk",
+        choices=[
+            StreamingChoices(
+                finish_reason="stop",
+                index=0,
+                delta=Delta(content=None, role="assistant"),
+            )
+        ],
+        stream_options={"include_usage": True},
+        usage=Usage(
+            completion_tokens=27,
+            prompt_tokens=50,
+            total_tokens=77,
+            completion_tokens_details={"reasoning_tokens": 0, "text_tokens": 27},
+        ),
+    )
+
+    chunks = [chunk]
+    processor = ChunkProcessor(chunks=chunks)
+
+    usage = processor.calculate_usage(
+        chunks=chunks,
+        model="claude-sonnet-4-6",
+        completion_output="",
+        reasoning_tokens=5,
+    )
+
+    assert usage.prompt_tokens == 50
+    assert usage.completion_tokens == 27
+    assert usage.total_tokens == 77
+    assert usage.completion_tokens_details is not None
+    assert usage.completion_tokens_details.reasoning_tokens == 5
+    assert usage.completion_tokens_details.text_tokens == 22
+
+
 def test_get_model_from_chunks_azure_model_router():
     """
     Test that _get_model_from_chunks finds the actual model from Azure Model Router chunks.

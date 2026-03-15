@@ -690,18 +690,49 @@ class ChunkProcessor:
             else:
                 returned_usage.completion_tokens_details = completion_tokens_details
 
-        if reasoning_tokens is not None:
+        if reasoning_tokens is not None and reasoning_tokens > 0:
             if returned_usage.completion_tokens_details is None:
                 returned_usage.completion_tokens_details = (
                     CompletionTokensDetailsWrapper(reasoning_tokens=reasoning_tokens)
                 )
-            elif (
-                returned_usage.completion_tokens_details is not None
-                and returned_usage.completion_tokens_details.reasoning_tokens is None
-            ):
-                returned_usage.completion_tokens_details.reasoning_tokens = (
-                    reasoning_tokens
+            else:
+                existing_reasoning_tokens = (
+                    returned_usage.completion_tokens_details.reasoning_tokens
                 )
+                should_backfill_reasoning_tokens = (
+                    existing_reasoning_tokens is None
+                    or existing_reasoning_tokens == 0
+                )
+                if should_backfill_reasoning_tokens:
+                    returned_usage.completion_tokens_details.reasoning_tokens = (
+                        reasoning_tokens
+                    )
+
+                existing_text_tokens = (
+                    returned_usage.completion_tokens_details.text_tokens
+                )
+                should_recalculate_text_tokens = (
+                    should_backfill_reasoning_tokens
+                    and (
+                        existing_text_tokens is None
+                        or existing_text_tokens == returned_usage.completion_tokens
+                    )
+                )
+                if should_recalculate_text_tokens:
+                    calculated_text_tokens = (
+                        returned_usage.completion_tokens - reasoning_tokens
+                    )
+                    if returned_usage.completion_tokens_details.image_tokens:
+                        calculated_text_tokens -= (
+                            returned_usage.completion_tokens_details.image_tokens
+                        )
+                    if returned_usage.completion_tokens_details.audio_tokens:
+                        calculated_text_tokens -= (
+                            returned_usage.completion_tokens_details.audio_tokens
+                        )
+                    returned_usage.completion_tokens_details.text_tokens = max(
+                        0, calculated_text_tokens
+                    )
         if prompt_tokens_details is not None:
             returned_usage.prompt_tokens_details = prompt_tokens_details
 
