@@ -5500,6 +5500,7 @@ _PRESERVED_NONE_FIELDS: List[tuple[str, str]] = [
     ("message", "content"),  # null when tool_calls present (issue #6677)
     ("message", "role"),  # always required by OpenAI spec
     ("delta", "content"),  # null in streaming chunks
+    ("delta", "reasoning_content"),  # reasoning deltas can be omitted by exclude_unset
 ]
 
 

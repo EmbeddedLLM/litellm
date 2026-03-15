@@ -5537,7 +5537,9 @@ async def async_data_generator(
             )
 
             if isinstance(chunk, BaseModel):
-                chunk = chunk.model_dump_json(exclude_none=True, exclude_unset=True)
+                chunk = safe_dumps(
+                    model_dump_with_preserved_fields(chunk, exclude_unset=True)
+                )
             elif isinstance(chunk, str) and chunk.startswith("data: "):
                 error_message = chunk
                 break

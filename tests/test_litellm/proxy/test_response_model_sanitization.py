@@ -222,6 +222,74 @@ async def test_proxy_streaming_chunks_use_client_requested_model_before_alias_ma
 
 
 @pytest.mark.asyncio
+async def test_proxy_streaming_chunks_preserve_reasoning_content(monkeypatch):
+    """
+    Regression test for hosted_vllm / OpenAI-compatible reasoning streams:
+
+    if a chunk contains `delta.reasoning_content`, the proxy SSE serializer
+    must not drop it when converting the Pydantic chunk back to JSON.
+    """
+    from litellm.proxy import proxy_server
+    from litellm.proxy._types import UserAPIKeyAuth
+
+    async def _iterator_hook(
+        user_api_key_dict: UserAPIKeyAuth,
+        response: AsyncGenerator,
+        request_data: dict,
+    ):
+        yield litellm.ModelResponseStream(
+            **{
+                "id": "chatcmpl-test",
+                "object": "chat.completion.chunk",
+                "created": 0,
+                "model": "hosted_vllm/test-model",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "role": "assistant",
+                            "content": None,
+                            "reasoning_content": "thinking step by step",
+                        },
+                        "finish_reason": None,
+                    }
+                ],
+            }
+        )
+
+    monkeypatch.setattr(
+        proxy_server.proxy_logging_obj,
+        "async_post_call_streaming_iterator_hook",
+        _iterator_hook,
+    )
+    monkeypatch.setattr(
+        proxy_server.proxy_logging_obj,
+        "async_post_call_streaming_hook",
+        AsyncMock(side_effect=lambda **kwargs: kwargs["response"]),
+    )
+
+    gen = proxy_server.async_data_generator(
+        response=MagicMock(),
+        user_api_key_dict=UserAPIKeyAuth(api_key="sk-1234"),
+        request_data={"model": "test-model"},
+    )
+
+    chunks = []
+    async for item in gen:
+        chunks.append(item)
+
+    assert len(chunks) >= 2
+    first = chunks[0]
+    assert first.startswith("data: ")
+
+    payload = json.loads(first[len("data: ") :].strip())
+    assert (
+        payload["choices"][0]["delta"]["reasoning_content"]
+        == "thinking step by step"
+    )
+
+
+@pytest.mark.asyncio
 async def test_proxy_streaming_azure_model_router_preserves_actual_model(monkeypatch):
     """
     Regression test for Azure Model Router streaming:
