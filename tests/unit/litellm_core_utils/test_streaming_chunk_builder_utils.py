@@ -1552,6 +1552,61 @@ def test_calculate_usage_fills_unknown_split_from_reasoning_estimate(
     assert usage.completion_tokens_details.text_tokens == expected_text_tokens
 
 
+@pytest.mark.parametrize(
+    "reported_reasoning, reported_text, estimated_reasoning, image_tokens, audio_tokens, expected_reasoning, expected_text",
+    [
+        (0, 27, 5, 0, 0, 5, 22),
+        (0, None, 5, 0, 0, 5, 22),
+        (None, 27, 5, 0, 0, 5, 22),
+        (0, 27, 5, 2, 3, 5, 17),
+        (0, 27, 40, 0, 0, 27, 0),
+        (0, 17, 5, 0, 0, 5, 17),
+        (3, 24, 5, 0, 0, 3, 24),
+        (0, 27, 0, 0, 0, 0, 27),
+    ],
+)
+def test_calculate_usage_backfills_zero_reasoning_without_overwriting_reported_split(
+    reported_reasoning: int | None,
+    reported_text: int | None,
+    estimated_reasoning: int,
+    image_tokens: int,
+    audio_tokens: int,
+    expected_reasoning: int,
+    expected_text: int,
+) -> None:
+    """Ensures visible reasoning repairs an unknown split while preserving provider detail and total usage."""
+    chunk: Final = ModelResponseStream(
+        id="chatcmpl-anthropic-reasoning",
+        created=0,
+        model="claude-sonnet-4-6",
+        choices=[StreamingChoices(finish_reason="stop", index=0, delta=Delta(content=None, role="assistant"))],
+        usage=Usage(
+            prompt_tokens=50,
+            completion_tokens=27,
+            total_tokens=77,
+            completion_tokens_details={
+                "reasoning_tokens": reported_reasoning,
+                "text_tokens": reported_text,
+                "image_tokens": image_tokens,
+                "audio_tokens": audio_tokens,
+            },
+        ),
+    )
+    chunks: Final = [chunk]
+    usage: Final = ChunkProcessor(chunks=chunks).calculate_usage(
+        chunks=chunks,
+        model="claude-sonnet-4-6",
+        completion_output="",
+        reasoning_tokens=estimated_reasoning,
+    )
+    assert (usage.prompt_tokens, usage.completion_tokens, usage.total_tokens) == (50, 27, 77)
+    assert usage.completion_tokens_details is not None
+    assert usage.completion_tokens_details.reasoning_tokens == expected_reasoning
+    assert usage.completion_tokens_details.text_tokens == expected_text
+    assert usage.completion_tokens_details.image_tokens == image_tokens
+    assert usage.completion_tokens_details.audio_tokens == audio_tokens
+
+
 def _openai_chunk(
     choices: Sequence[Mapping[str, object]], usage: Mapping[str, int] | None = None
 ) -> dict[str, object]:

@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Final
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -93,6 +93,28 @@ def test_fast_serialize_simple_streaming_chunk_matches_model_dump_json():
     assert json.loads(_serialize_streaming_chunk(chunk)) == json.loads(
         chunk.model_dump_json(exclude_none=True, exclude_unset=True)
     )
+
+
+def test_serialize_streaming_chunk_preserves_reasoning_content() -> None:
+    """Ensures proxy serialization retains reasoning deltas from OpenAI-compatible providers."""
+    from litellm.proxy.proxy_server import _serialize_streaming_chunk
+
+    chunk: Final = litellm.ModelResponseStream(
+        id="chatcmpl-test",
+        created=0,
+        model="hosted_vllm/test-model",
+        choices=[
+            {
+                "index": 0,
+                "delta": {"role": "assistant", "content": None, "reasoning_content": "thinking step by step"},
+                "finish_reason": None,
+            }
+        ],
+    )
+    assert json.loads(_serialize_streaming_chunk(chunk))["choices"][0]["delta"] == {
+        "role": "assistant",
+        "reasoning_content": "thinking step by step",
+    }
 
 
 def test_fast_serialize_returns_none_when_model_field_is_missing():

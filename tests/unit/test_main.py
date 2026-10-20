@@ -6,6 +6,7 @@ import io
 import json
 import logging
 import os
+import sys
 import urllib.parse
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -2759,6 +2760,19 @@ def test_image_edit_merges_headers_and_extra_headers():
     handler_kwargs = mock_handler.call_args.kwargs
     assert handler_kwargs["extra_headers"] == combined_headers
     assert "extra_headers" not in handler_kwargs["image_edit_optional_request_params"]
+
+
+def test_function_tools_work_without_optional_mcp_handler(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensures ordinary function tools do not require the optional MCP gateway dependencies."""
+    monkeypatch.setitem(sys.modules, "litellm.responses.mcp.chat_completions_handler", None)
+    response: Final = litellm.completion(
+        model="openai/gpt-4.1",
+        messages=[{"role": "user", "content": "hello"}],
+        tools=[{"type": "function", "function": {"name": "get_weather", "parameters": {"type": "object"}}}],
+        mock_response="ok",
+        api_key="mock",
+    )
+    assert response.choices[0].message.content == "ok"
 
 
 @pytest.mark.parametrize("metadata_key", ("metadata", "litellm_metadata"))
