@@ -14,7 +14,7 @@ uv run --no-project --with wheel==0.46.3 --with pydantic==2.12.5 python scripts/
 
 Use `--platform manylinux_2_28_x86_64` for a host-only build. The default builds all seven upstream platforms, including both musl variants
 
-`scripts/fork_wheel_sources.json` pins the official PyPI URLs, SHA-256 hashes and upstream source revision. The builder verifies each download and checks that its original Python modules matches the pinned upstream commit. It substitutes the corrected modules from the selected Git revision, then uses `wheel unpack` and `wheel pack` to regenerate `RECORD`
+`scripts/fork_wheel_sources.json` pins the official PyPI URLs, SHA-256 hashes and upstream source revision. The builder verifies each download and checks that its original Python modules matches the pinned upstream commit. Windows wheel CRLF line endings are normalized only for that source comparison. It substitutes the corrected modules from the selected Git revision, then uses `wheel unpack` and `wheel pack` to regenerate `RECORD`
 
 The builder rejects any change to files other than the corrected Python modules and `RECORD`. Native binaries, metadata and all remaining Python files remain byte-identical to the official wheel. `dist/fork/provenance.json` records the exact source commit, upstream inputs, packaging-tool version and output hashes. Archive timestamps derive from the source commit for reproducibility
 

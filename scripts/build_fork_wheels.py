@@ -67,7 +67,7 @@ def build_wheel(source: WheelSource, sources: Sources, revision: str, destinatio
         original.write_bytes(payload)
         with ZipFile(original) as upstream:
             for module in sources.modules:
-                if upstream.read(module) != git("show", f"{sources.upstream_commit}:{module}"):
+                if upstream.read(module).replace(b"\r\n", b"\n") != git("show", f"{sources.upstream_commit}:{module}"):
                     raise SystemExit(
                         f"Upstream wheel Python source differs from pinned tag: {source.filename}: {module}"
                     )
