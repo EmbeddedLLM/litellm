@@ -1144,15 +1144,20 @@ class ChunkProcessor:
                 returned_usage.completion_tokens_details.reasoning_tokens is None
                 or (returned_usage.completion_tokens_details.reasoning_tokens == 0 and capped_reasoning_tokens > 0)
             ):
-                returned_usage.completion_tokens_details.reasoning_tokens = capped_reasoning_tokens
-                if returned_usage.completion_tokens_details.text_tokens in (None, returned_usage.completion_tokens):
-                    returned_usage.completion_tokens_details.text_tokens = max(
-                        0,
-                        returned_usage.completion_tokens
-                        - capped_reasoning_tokens
-                        - (returned_usage.completion_tokens_details.image_tokens or 0)
-                        - (returned_usage.completion_tokens_details.audio_tokens or 0),
-                    )
+                details: Final = returned_usage.completion_tokens_details
+                preserved_text_tokens: Final = (
+                    0 if details.text_tokens in (None, returned_usage.completion_tokens) else details.text_tokens or 0
+                )
+                remaining_tokens: Final = max(
+                    0,
+                    returned_usage.completion_tokens
+                    - preserved_text_tokens
+                    - (details.image_tokens or 0)
+                    - (details.audio_tokens or 0),
+                )
+                details.reasoning_tokens = min(capped_reasoning_tokens, remaining_tokens)
+                if details.text_tokens in (None, returned_usage.completion_tokens):
+                    details.text_tokens = remaining_tokens - details.reasoning_tokens
         if prompt_tokens_details is not None:
             returned_usage.prompt_tokens_details = prompt_tokens_details
 

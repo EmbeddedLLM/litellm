@@ -1563,6 +1563,9 @@ def test_calculate_usage_fills_unknown_split_from_reasoning_estimate(
         (0, 17, 5, 0, 0, 5, 17),
         (3, 24, 5, 0, 0, 3, 24),
         (0, 27, 0, 0, 0, 0, 27),
+        (0, 25, 10, 0, 0, 2, 25),
+        (0, 7, 10, 0, 20, 0, 7),
+        (0, 27, 40, 2, 3, 22, 0),
     ],
 )
 def test_calculate_usage_backfills_zero_reasoning_without_overwriting_reported_split(
